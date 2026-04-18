@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Capacitor iOS - Pods (설치 파일, 용량 큼)
+ios/App/Pods/
+ios/App/App.xcworkspace/xcshareddata/
+
+# macOS
+.DS_Store
+
+# 로컬 서버 스크립트 (선택)
+# 서버시작.command

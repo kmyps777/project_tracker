@@ -1,0 +1,24 @@
+{
+  "appId": "com.projecttracker.app",
+  "appName": "Project Tracker",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "automatic",
+    "allowsLinkPreview": false,
+    "scrollEnabled": true,
+    "backgroundColor": "#f0f4ff"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#f0f4ff",
+      "androidSpinnerStyle": "small",
+      "iosSpinnerStyle": "small",
+      "spinnerColor": "#6360f4",
+      "showSpinner": false,
+      "launchAutoHide": true,
+      "fadeInDuration": 200,
+      "fadeOutDuration": 200
+    }
+  }
+}
