@@ -43,15 +43,18 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 15px; }
+html { font-size: 15px; height: 100%; }
 
 body {
     background: var(--bg);
     color: var(--text);
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
     line-height: 1.6;
-    min-height: 100vh;
+    height: 100%;
+    overflow: hidden;
 }
+
+#app { height: 100%; }
 
 button { cursor: pointer; font-family: inherit; }
 input, textarea { font-family: inherit; }
@@ -86,7 +89,23 @@ ul { list-style: none; }
 /* =====================================================
    LAYOUT
    ===================================================== */
-.page { min-height: 100vh; display: flex; flex-direction: column; }
+.page { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+/* 대시보드: header+userbar 고정, main만 스크롤 */
+#dashboard-page > main {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: 16px;
+}
+
+/* 프로젝트 페이지: header+tab-nav 고정, main만 스크롤 */
+#project-page > main {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: 16px;
+}
 
 .container {
     max-width: 920px;
@@ -1064,26 +1083,10 @@ ul { list-style: none; }
 /* =====================================================
    iOS SAFE AREA (노치 / 다이나믹 아일랜드 대응)
    ===================================================== */
-@supports (padding-top: env(safe-area-inset-top)) {
-    /* 헤더: 상태바 영역만큼 높이 확보 */
-    .app-header {
-        padding-top: env(safe-area-inset-top);
-        height: calc(64px + env(safe-area-inset-top));
-    }
-
-    /* 탭바 좌우 패딩 */
-    .tab-nav {
-        padding-left:  max(24px, env(safe-area-inset-left));
-        padding-right: max(24px, env(safe-area-inset-right));
-    }
-
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
     /* 스크롤 콘텐츠 하단 여백 */
-    .container {
+    #dashboard-page > main,
+    #project-page > main {
         padding-bottom: max(28px, env(safe-area-inset-bottom));
-    }
-
-    /* 로딩 화면 상단 여백 */
-    .loading-screen {
-        padding-top: env(safe-area-inset-top);
     }
 }
