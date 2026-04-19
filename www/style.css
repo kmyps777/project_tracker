@@ -476,7 +476,9 @@ ul { list-style: none; }
 .change-item:hover { border-color: var(--primary-border); }
 .change-text { flex: 1; color: var(--text); word-break: break-word; font-weight: 500; }
 .change-text-editable { cursor: pointer; }
-.change-text-editable:hover { color: var(--primary); }
+@media (hover: hover) {
+    .change-text-editable:hover { color: var(--primary); }
+}
 .change-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
 .no-update-card {
@@ -547,7 +549,9 @@ ul { list-style: none; }
     transition: all var(--transition);
     box-shadow: var(--shadow-sm);
 }
-.improvement-item:hover { border-color: var(--primary-border); }
+@media (hover: hover) {
+    .improvement-item:hover { border-color: var(--primary-border); }
+}
 
 .improvement-item.is-completed {
     background: var(--success-bg);
@@ -569,7 +573,9 @@ ul { list-style: none; }
     font-weight: 500;
 }
 .improvement-text-editable { cursor: pointer; }
-.improvement-text-editable:hover { color: var(--primary); }
+@media (hover: hover) {
+    .improvement-text-editable:hover { color: var(--primary); }
+}
 .improvement-item.is-completed .improvement-text {
     text-decoration: line-through;
     color: var(--text-dim);
