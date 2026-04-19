@@ -786,19 +786,18 @@ function attachInlineChangeAdd(inputId, btnId, updateId) {
 function buildChangeItems(changes) {
     return changes.map(c => `
         <li class="change-item" data-cid="${c.id}">
-            <span class="change-text">${esc(c.text)}</span>
+            <span class="change-text change-text-editable" data-cid="${c.id}" title="탭하여 편집">${esc(c.text)}</span>
             <div class="change-actions">
-                <button class="btn-icon edit-change-btn" data-cid="${c.id}" title="편집">✏</button>
                 <button class="btn-icon-danger del-change-btn" data-cid="${c.id}" title="삭제">×</button>
             </div>
         </li>`).join('');
 }
 
 function attachChangeItemEvents(container, updateId) {
-    container.querySelectorAll('.edit-change-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+    container.querySelectorAll('.change-text-editable').forEach(span => {
+        span.addEventListener('click', () => {
             const u  = S.updates.find(u => u.id === updateId);
-            const ch = u?.changes?.find(c => c.id === btn.dataset.cid);
+            const ch = u?.changes?.find(c => c.id === span.dataset.cid);
             if (ch) openEditChangeModal(updateId, ch.id, ch.text);
         });
     });
@@ -830,12 +829,11 @@ function renderImprovementsTab() {
             <div class="improvement-item ${imp.completed ? 'is-completed' : ''}" data-imp-id="${imp.id}">
                 <input type="checkbox" class="improvement-checkbox" ${imp.completed ? 'checked' : ''}
                        data-imp-id="${imp.id}">
-                <span class="improvement-text">${esc(imp.text)}</span>
+                <span class="improvement-text improvement-text-editable" data-imp-id="${imp.id}" title="탭하여 편집">${esc(imp.text)}</span>
                 <div class="improvement-actions">
                     ${imp.completed && cur
                         ? `<button class="btn btn-sm btn-success imp-add-btn" data-imp-id="${imp.id}">업데이트에 추가</button>`
                         : ''}
-                    <button class="btn-icon edit-imp-btn"       data-imp-id="${imp.id}" title="편집">✏</button>
                     <button class="btn-icon-danger del-imp-btn" data-imp-id="${imp.id}" title="삭제">×</button>
                 </div>
             </div>`).join('');
@@ -890,9 +888,9 @@ function renderImprovementsTab() {
         });
     });
 
-    container.querySelectorAll('.edit-imp-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const imp = S.improvements.find(i => i.id === btn.dataset.impId);
+    container.querySelectorAll('.improvement-text-editable').forEach(span => {
+        span.addEventListener('click', () => {
+            const imp = S.improvements.find(i => i.id === span.dataset.impId);
             if (!imp) return;
             openModal('보완 사항 편집',
                 `<div class="form-group">
