@@ -342,6 +342,15 @@ function goToDashboard() {
 async function goToProject(id) {
     S.currentProjectId = id;
     S.currentTab = 'improvements';
+
+    // 이전 프로젝트 콘텐츠 초기화 (잔상 방지)
+    document.getElementById('improvements-list').innerHTML = '';
+    document.getElementById('current-update-section').innerHTML = '';
+    document.getElementById('updates-history').innerHTML = '';
+    document.getElementById('memos-list').innerHTML = '';
+    document.getElementById('status-options-grid').innerHTML = '';
+    document.getElementById('project-name-title').textContent = '';
+
     document.getElementById('dashboard-page').classList.add('hidden');
     document.getElementById('project-page').classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(b =>
