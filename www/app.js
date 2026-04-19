@@ -341,14 +341,14 @@ function goToDashboard() {
 
 async function goToProject(id) {
     S.currentProjectId = id;
-    S.currentTab = 'status';
+    S.currentTab = 'improvements';
     document.getElementById('dashboard-page').classList.add('hidden');
     document.getElementById('project-page').classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.tab === 'status')
+        b.classList.toggle('active', b.dataset.tab === 'improvements')
     );
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-    document.getElementById('tab-status').classList.remove('hidden');
+    document.getElementById('tab-improvements').classList.remove('hidden');
     await setupProjectListeners(id);
 }
 
