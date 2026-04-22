@@ -15,7 +15,7 @@
 <!-- Loading Screen -->
 <div id="loading" class="loading-screen">
     <div class="spinner"></div>
-    <p>로딩 중...</p>
+    <p data-i18n="loading">로딩 중...</p>
 </div>
 
 <!-- App -->
@@ -28,19 +28,17 @@
                 <span class="title-icon">◈</span> Project Tracker
             </h1>
             <div style="display:flex;gap:8px;align-items:center">
-                <button id="add-project-btn" class="btn btn-primary">+ 새 프로젝트</button>
-                <!-- 익명: 이메일 연동 버튼 / 이메일 유저: 로그아웃 버튼 -->
+                <button id="add-project-btn" class="btn btn-primary" data-i18n="add_project">+ 새 프로젝트</button>
                 <button id="auth-action-btn" class="btn btn-ghost btn-sm"></button>
             </div>
         </header>
-        <!-- 현재 사용자 상태 표시 바 -->
         <div id="user-info-bar" class="user-info-bar"></div>
         <main class="container">
             <div id="projects-grid" class="projects-grid"></div>
             <div id="empty-state" class="empty-state hidden">
                 <div class="empty-icon">📂</div>
-                <p class="empty-title">프로젝트가 없습니다</p>
-                <p class="empty-sub">위의 버튼으로 첫 프로젝트를 추가해보세요</p>
+                <p class="empty-title" data-i18n="empty_title">프로젝트가 없습니다</p>
+                <p class="empty-sub" data-i18n="empty_sub">위의 버튼으로 첫 프로젝트를 추가해보세요</p>
             </div>
         </main>
     </div>
@@ -49,20 +47,20 @@
     <div id="project-page" class="page hidden">
         <header class="app-header">
             <div class="header-start">
-                <button id="back-btn" class="btn btn-ghost">← 목록</button>
+                <button id="back-btn" class="btn btn-ghost" data-i18n="back">← 목록</button>
                 <div class="project-title-group">
                     <h2 id="project-name-title" class="project-title"></h2>
-                    <button id="edit-name-btn" class="btn-icon-text" title="이름 편집">✏</button>
+                    <button id="edit-name-btn" class="btn-icon-text" data-i18n-title="tip_edit_name">✏</button>
                 </div>
             </div>
-            <button id="delete-project-btn" class="btn btn-danger-ghost">삭제</button>
+            <button id="delete-project-btn" class="btn btn-danger-ghost" data-i18n="delete">삭제</button>
         </header>
 
         <nav class="tab-nav">
-            <button class="tab-btn active" data-tab="improvements">보완 사항</button>
-            <button class="tab-btn" data-tab="updates">업데이트 로그</button>
-            <button class="tab-btn" data-tab="status">진행 상태</button>
-            <button class="tab-btn" data-tab="memos">메모</button>
+            <button class="tab-btn active" data-tab="improvements" data-i18n="tab_improvements">보완 사항</button>
+            <button class="tab-btn" data-tab="updates" data-i18n="tab_updates">업데이트 로그</button>
+            <button class="tab-btn" data-tab="status" data-i18n="tab_status">진행 상태</button>
+            <button class="tab-btn" data-tab="memos" data-i18n="tab_memos">메모</button>
         </nav>
 
         <main class="container tab-container">
@@ -70,8 +68,8 @@
             <!-- Status Tab -->
             <div id="tab-status" class="tab-panel">
                 <div class="panel-header">
-                    <h3 class="panel-title">진행 상태</h3>
-                    <button id="edit-status-options-btn" class="btn btn-sm btn-outline">상태 편집</button>
+                    <h3 class="panel-title" data-i18n="panel_status">진행 상태</h3>
+                    <button id="edit-status-options-btn" class="btn btn-sm btn-outline" data-i18n="edit_status">상태 편집</button>
                 </div>
                 <div id="status-options-grid" class="status-options-grid"></div>
             </div>
@@ -79,13 +77,13 @@
             <!-- Updates Tab -->
             <div id="tab-updates" class="tab-panel hidden">
                 <div class="panel-header">
-                    <h3 class="panel-title">업데이트 로그</h3>
-                    <button id="new-update-btn" class="btn btn-sm btn-primary">+ 새 업데이트</button>
+                    <h3 class="panel-title" data-i18n="panel_updates">업데이트 로그</h3>
+                    <button id="new-update-btn" class="btn btn-sm btn-primary" data-i18n="new_update">+ 새 업데이트</button>
                 </div>
                 <div id="current-update-section"></div>
                 <div class="accordion-section">
                     <button id="toggle-history-btn" class="accordion-trigger">
-                        <span>이전 업데이트 기록</span>
+                        <span data-i18n="prev_updates">이전 업데이트 기록</span>
                         <span class="accordion-chevron">▼</span>
                     </button>
                     <div id="updates-history" class="accordion-body hidden"></div>
@@ -95,7 +93,7 @@
             <!-- Improvements Tab -->
             <div id="tab-improvements" class="tab-panel hidden">
                 <div class="panel-header">
-                    <h3 class="panel-title">보완 사항</h3>
+                    <h3 class="panel-title" data-i18n="panel_improvements">보완 사항</h3>
                 </div>
                 <div id="improvements-list"></div>
             </div>
@@ -103,8 +101,8 @@
             <!-- Memos Tab -->
             <div id="tab-memos" class="tab-panel hidden">
                 <div class="panel-header">
-                    <h3 class="panel-title">메모</h3>
-                    <button id="add-memo-btn" class="btn btn-sm btn-primary">+ 추가</button>
+                    <h3 class="panel-title" data-i18n="panel_memos">메모</h3>
+                    <button id="add-memo-btn" class="btn btn-sm btn-primary" data-i18n="add_memo">+ 추가</button>
                 </div>
                 <div id="memos-list"></div>
             </div>
@@ -119,7 +117,7 @@
     <div id="modal-box" class="modal-box" role="dialog" aria-modal="true">
         <div class="modal-header">
             <h3 id="modal-title" class="modal-title-text"></h3>
-            <button id="modal-close-btn" class="btn-icon-close" aria-label="닫기">×</button>
+            <button id="modal-close-btn" class="btn-icon-close" data-i18n-aria="modal_close">×</button>
         </div>
         <div id="modal-body" class="modal-body"></div>
         <div id="modal-footer" class="modal-footer"></div>
