@@ -844,6 +844,7 @@ function listenProjects() {
     // 문서(오프라인 생성 등)가 누락되는 버그를 방지하기 위해 정렬은 클라이언트에서 처리
     return userRef().collection('projects')
         .onSnapshot(snap => {
+            console.log('[Projects] UID:', S.user?.uid, '| 문서 수:', snap.docs.length, '| 문서 IDs:', snap.docs.map(d => d.id));
             let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             list.sort((a, b) => {
                 const aOrd = a.order ?? Infinity;
@@ -1705,6 +1706,7 @@ function bindModal() {
 // ================================================================
 async function startUserSession(user) {
     S.user = user;
+    console.log('[Session] UID:', user.uid, '| anonymous:', user.isAnonymous, '| email:', user.email ?? 'none');
     S.statusOptions = [
         { label: t('status_waiting'),     color: '#94a3b8' },
         { label: t('status_in_progress'), color: '#6360f4' },
