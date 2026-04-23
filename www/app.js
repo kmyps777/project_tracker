@@ -839,13 +839,25 @@ async function saveStatusOptions() {
 //  FIRESTORE — PROJECTS
 // ================================================================
 function listenProjects() {
-    return userRef().collection('projects').orderBy('createdAt', 'asc')
+    // orderBy를 사용하지 않음: Firestore의 orderBy는 해당 필드가 없는 문서를
+    // 결과에서 무조건 제외하므로, 서버 타임스탬프가 아직 확정되지 않은
+    // 문서(오프라인 생성 등)가 누락되는 버그를 방지하기 위해 정렬은 클라이언트에서 처리
+    return userRef().collection('projects')
         .onSnapshot(snap => {
             let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            const withOrd = list.filter(p => p.order !== undefined).sort((a,b) => a.order - b.order);
-            const noOrd   = list.filter(p => p.order === undefined);
-            S.projects = [...withOrd, ...noOrd];
+            list.sort((a, b) => {
+                const aOrd = a.order ?? Infinity;
+                const bOrd = b.order ?? Infinity;
+                if (aOrd !== bOrd) return aOrd - bOrd;
+                // order가 같거나 없을 경우 createdAt 으로 보조 정렬
+                const aTime = a.createdAt?.toMillis?.() ?? 0;
+                const bTime = b.createdAt?.toMillis?.() ?? 0;
+                return aTime - bTime;
+            });
+            S.projects = list;
             renderDashboard();
+        }, err => {
+            console.error('Projects listener error:', err);
         });
 }
 
@@ -1716,6 +1728,13 @@ async function init() {
 
     auth.onAuthStateChanged(async user => {
         if (user) {
+            // 이미 같은 UID로 세션이 활성화된 경우(이메일 연동 등으로
+            // onAuthStateChanged가 재발동할 때) UI만 갱신하고 리스너는 재생성하지 않음
+            if (S.user && S.user.uid === user.uid) {
+                S.user = user;
+                updateAuthUI();
+                return;
+            }
             try {
                 await startUserSession(user);
             } catch (err) {
