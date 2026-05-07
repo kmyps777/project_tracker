@@ -853,7 +853,9 @@ function listenProjects() {
                 // order가 같거나 없을 경우 createdAt 으로 보조 정렬
                 const aTime = a.createdAt?.toMillis?.() ?? 0;
                 const bTime = b.createdAt?.toMillis?.() ?? 0;
-                return aTime - bTime;
+                if (aTime !== bTime) return aTime - bTime;
+                // 최후 tie-breaker: 문서 ID (항상 유일하므로 완전히 결정론적 정렬 보장)
+                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
             });
             S.projects = list;
             renderDashboard();
@@ -863,11 +865,12 @@ function listenProjects() {
 }
 
 async function createProject(name) {
-    const minOrd = S.projects.reduce((m, p) => Math.min(m, p.order ?? Infinity), Infinity);
-    const newOrd = isFinite(minOrd) ? minOrd - 1 : 0;
+    // -Date.now()을 order로 사용: 호출 시점마다 고유한 값이 보장되어
+    // 빠른 연속 생성 시에도 중복 order가 발생하지 않음.
+    // 음수이므로 값이 작을수록(절댓값이 클수록) 최신 프로젝트 → 목록 상단 배치.
     await userRef().collection('projects').add({
         name, status: t('status_waiting'), currentUpdateVersion: null,
-        order: newOrd,
+        order: -Date.now(),
         createdAt: TS(),
     });
 }
