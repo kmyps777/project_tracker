@@ -165,6 +165,7 @@ const T = {
         toast_no_current_update:  '현재 진행 중인 업데이트가 없습니다.',
 
         // Confirms
+        confirm_delete_update: '이 업데이트 로그를 삭제하시겠습니까?\n연결된 보완 사항은 목록으로 되돌아갑니다.',
         confirm_delete_change: '이 변경사항을 삭제하시겠습니까?',
         confirm_delete_imp:    '이 보완 사항을 삭제하시겠습니까?',
         confirm_delete_memo:   '이 메모를 삭제하시겠습니까?',
@@ -353,6 +354,7 @@ const T = {
         toast_no_current_update:  'No update currently in progress.',
 
         // Confirms
+        confirm_delete_update: 'Delete this update log?\nLinked improvements will be restored to the list.',
         confirm_delete_change: 'Delete this change?',
         confirm_delete_imp:    'Delete this improvement?',
         confirm_delete_memo:   'Delete this memo?',
@@ -928,13 +930,32 @@ async function createUpdate(pid, version) {
     S.updates.filter(u => u.isCurrent).forEach(u =>
         batch.update(userRef().collection('projects').doc(pid).collection('updates').doc(u.id), { isCurrent: false })
     );
-    S.improvements.filter(i => i.addedToUpdate).forEach(i =>
-        batch.update(userRef().collection('projects').doc(pid).collection('improvements').doc(i.id), {
-            addedToUpdate: false, addedChangeId: null,
-        })
-    );
+    // ※ 이전 업데이트에 추가된 보완사항(addedToUpdate: true)은 리셋하지 않음.
+    //   새 업데이트를 시작해도 이미 처리된 보완사항은 목록에 다시 나타나지 않도록 함.
     batch.set(newRef, { version, isCurrent: true, changes: [], createdAt: TS() });
     batch.update(userRef().collection('projects').doc(pid), { currentUpdateVersion: version });
+    await batch.commit();
+}
+
+async function deleteUpdate(pid, updateId) {
+    const u = S.updates.find(x => x.id === updateId);
+    if (!u) return;
+    const batch = db.batch();
+    // 이 업데이트의 변경사항과 연결된 보완 사항들을 목록으로 복원
+    const changeIds = new Set((u.changes ?? []).map(c => c.id));
+    S.improvements.forEach(i => {
+        if (i.addedChangeId && changeIds.has(i.addedChangeId)) {
+            batch.update(
+                userRef().collection('projects').doc(pid).collection('improvements').doc(i.id),
+                { addedToUpdate: false, addedChangeId: null }
+            );
+        }
+    });
+    // 현재 업데이트라면 프로젝트의 currentUpdateVersion도 초기화
+    if (u.isCurrent) {
+        batch.update(userRef().collection('projects').doc(pid), { currentUpdateVersion: null });
+    }
+    batch.delete(userRef().collection('projects').doc(pid).collection('updates').doc(updateId));
     await batch.commit();
 }
 
@@ -980,9 +1001,18 @@ async function editUpdateVersion(pid, updateId, version) {
 // ================================================================
 function listenImprovements(pid) {
     return userRef().collection('projects').doc(pid).collection('improvements')
-        .orderBy('createdAt', 'asc')
         .onSnapshot(snap => {
-            S.improvements = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            list.sort((a, b) => {
+                const aOrd = typeof a.order === 'number' ? a.order : Infinity;
+                const bOrd = typeof b.order === 'number' ? b.order : Infinity;
+                if (aOrd !== bOrd) return aOrd - bOrd;
+                const aTime = a.createdAt?.toMillis?.() ?? 0;
+                const bTime = b.createdAt?.toMillis?.() ?? 0;
+                if (aTime !== bTime) return aTime - bTime;
+                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+            });
+            S.improvements = list;
             if (S.currentTab === 'improvements') renderImprovementsTab();
             if (S.currentTab === 'updates')      renderUpdatesTab();
         });
@@ -990,7 +1020,8 @@ function listenImprovements(pid) {
 
 async function createImprovement(pid, text) {
     await userRef().collection('projects').doc(pid).collection('improvements').add({
-        text, completed: false, addedToUpdate: false, addedChangeId: null, createdAt: TS(),
+        text, completed: false, addedToUpdate: false, addedChangeId: null,
+        order: -Date.now(), createdAt: TS(),
     });
 }
 
@@ -1007,22 +1038,71 @@ async function removeImprovement(pid, id) {
     await userRef().collection('projects').doc(pid).collection('improvements').doc(id).delete();
 }
 
+let _impMoveLock = false;
+async function moveImprovement(pid, id, dir) {
+    if (_impMoveLock) return;
+    const visible = S.improvements.filter(i => !i.addedToUpdate);
+    const idx = visible.findIndex(i => i.id === id);
+    if (idx < 0) return;
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= visible.length) return;
+    _impMoveLock = true;
+    const a = visible[idx];
+    const b = visible[swapIdx];
+    const orderA = typeof a.order === 'number' ? a.order : idx;
+    const orderB = typeof b.order === 'number' ? b.order : swapIdx;
+    const batch = db.batch();
+    batch.update(userRef().collection('projects').doc(pid).collection('improvements').doc(a.id), { order: orderB });
+    batch.update(userRef().collection('projects').doc(pid).collection('improvements').doc(b.id), { order: orderA });
+    await batch.commit();
+    setTimeout(() => { _impMoveLock = false; }, 400);
+}
+
 
 // ================================================================
 //  FIRESTORE — MEMOS
 // ================================================================
 function listenMemos(pid) {
     return userRef().collection('projects').doc(pid).collection('memos')
-        .orderBy('createdAt', 'desc')
         .onSnapshot(snap => {
-            S.memos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            list.sort((a, b) => {
+                const aOrd = typeof a.order === 'number' ? a.order : Infinity;
+                const bOrd = typeof b.order === 'number' ? b.order : Infinity;
+                if (aOrd !== bOrd) return aOrd - bOrd;
+                // order 없는 기존 항목: createdAt DESC (최신 위)
+                const aTime = a.createdAt?.toMillis?.() ?? 0;
+                const bTime = b.createdAt?.toMillis?.() ?? 0;
+                if (aTime !== bTime) return bTime - aTime;
+                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+            });
+            S.memos = list;
             if (S.currentTab === 'memos') renderMemosTab();
         });
 }
 
 async function createMemo(pid, title, content) {
     await userRef().collection('projects').doc(pid).collection('memos')
-        .add({ title, content, createdAt: TS() });
+        .add({ title, content, order: -Date.now(), createdAt: TS() });
+}
+
+let _memoMoveLock = false;
+async function moveMemo(pid, id, dir) {
+    if (_memoMoveLock) return;
+    const idx = S.memos.findIndex(m => m.id === id);
+    if (idx < 0) return;
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= S.memos.length) return;
+    _memoMoveLock = true;
+    const a = S.memos[idx];
+    const b = S.memos[swapIdx];
+    const orderA = typeof a.order === 'number' ? a.order : idx;
+    const orderB = typeof b.order === 'number' ? b.order : swapIdx;
+    const batch = db.batch();
+    batch.update(userRef().collection('projects').doc(pid).collection('memos').doc(a.id), { order: orderB });
+    batch.update(userRef().collection('projects').doc(pid).collection('memos').doc(b.id), { order: orderA });
+    await batch.commit();
+    setTimeout(() => { _memoMoveLock = false; }, 400);
 }
 
 async function patchMemo(pid, id, data) {
@@ -1164,7 +1244,10 @@ function renderUpdatesTab() {
                         <span class="update-version">${esc(cur.version)}</span>
                         <button class="btn-icon-text" id="edit-cur-ver-btn" title="${t('tip_edit_ver')}">✏</button>
                     </div>
-                    <span class="update-date">${cur.createdAt ? fmtDate(cur.createdAt) : ''}</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="update-date">${cur.createdAt ? fmtDate(cur.createdAt) : ''}</span>
+                        <button class="btn-icon-danger del-update-btn" data-uid="${cur.id}" title="${t('tip_delete')}">×</button>
+                    </div>
                 </div>
                 <div class="changes-header">
                     <span class="changes-label">
@@ -1181,6 +1264,12 @@ function renderUpdatesTab() {
 
         document.getElementById('edit-cur-ver-btn')
             ?.addEventListener('click', () => openEditVersionModal(cur));
+        curSection.querySelector('.del-update-btn')
+            ?.addEventListener('click', async () => {
+                if (!confirm(t('confirm_delete_update'))) return;
+                await deleteUpdate(S.currentProjectId, cur.id);
+                toast(t('toast_deleted'), 'info');
+            });
         attachChangeItemEvents(curSection, cur.id);
         attachInlineChangeAdd('inline-change-input', 'inline-change-add-btn', cur.id);
     }
@@ -1198,7 +1287,10 @@ function renderUpdatesTab() {
                         <span class="update-version">${esc(u.version)}</span>
                         <button class="btn-icon-text prev-edit-ver-btn" data-uid="${u.id}" title="${t('tip_edit_ver')}">✏</button>
                     </div>
-                    <span class="update-date">${u.createdAt ? fmtDate(u.createdAt) : ''}</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span class="update-date">${u.createdAt ? fmtDate(u.createdAt) : ''}</span>
+                        <button class="btn-icon-danger del-update-btn" data-uid="${u.id}" title="${t('tip_delete')}">×</button>
+                    </div>
                 </div>
                 <ul class="changes-list">
                     ${buildChangeItems(u.changes ?? [])}
@@ -1220,6 +1312,11 @@ function renderUpdatesTab() {
 
         histDiv.querySelectorAll('.prev-update-card').forEach(card => {
             const uid_ = card.dataset.uid;
+            card.querySelector('.del-update-btn')?.addEventListener('click', async () => {
+                if (!confirm(t('confirm_delete_update'))) return;
+                await deleteUpdate(S.currentProjectId, uid_);
+                toast(t('toast_deleted'), 'info');
+            });
             attachChangeItemEvents(card, uid_);
             const inp = card.querySelector('.prev-inline-inp');
             const btn = card.querySelector('.prev-inline-btn');
@@ -1298,8 +1395,14 @@ function renderImprovementsTab() {
     } else if (visible.length === 0) {
         listHTML = `<p class="empty-text">${t('imp_all_added')}</p>`;
     } else {
-        listHTML = visible.map(imp => `
+        listHTML = visible.map((imp, idx) => `
             <div class="improvement-item ${imp.completed ? 'is-completed' : ''}" data-imp-id="${imp.id}">
+                <div class="order-btns">
+                    <button class="order-btn imp-order-btn" data-imp-id="${imp.id}" data-dir="up"
+                            title="${t('move_up')}" ${idx === 0 ? 'disabled' : ''}>▲</button>
+                    <button class="order-btn imp-order-btn" data-imp-id="${imp.id}" data-dir="down"
+                            title="${t('move_down')}" ${idx === visible.length - 1 ? 'disabled' : ''}>▼</button>
+                </div>
                 <input type="checkbox" class="improvement-checkbox" ${imp.completed ? 'checked' : ''}
                        data-imp-id="${imp.id}">
                 <span class="improvement-text improvement-text-editable" data-imp-id="${imp.id}" title="${t('tip_tap_to_edit')}">${esc(imp.text)}</span>
@@ -1389,6 +1492,14 @@ function renderImprovementsTab() {
             toast(t('toast_deleted'), 'info');
         });
     });
+
+    container.querySelectorAll('.imp-order-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+            e.stopPropagation();
+            if (btn.disabled) return;
+            await moveImprovement(S.currentProjectId, btn.dataset.impId, btn.dataset.dir);
+        });
+    });
 }
 
 
@@ -1401,11 +1512,17 @@ function renderMemosTab() {
         container.innerHTML = `<p class="empty-text">${t('memo_empty')}</p>`;
         return;
     }
-    container.innerHTML = S.memos.map(m => `
+    container.innerHTML = S.memos.map((m, idx) => `
         <div class="memo-card" data-memo-id="${m.id}">
             <div class="memo-card-head">
                 <h4 class="memo-title">${esc(m.title)}</h4>
                 <div class="memo-actions">
+                    <div class="order-btns">
+                        <button class="order-btn memo-order-btn" data-memo-id="${m.id}" data-dir="up"
+                                title="${t('move_up')}" ${idx === 0 ? 'disabled' : ''}>▲</button>
+                        <button class="order-btn memo-order-btn" data-memo-id="${m.id}" data-dir="down"
+                                title="${t('move_down')}" ${idx === S.memos.length - 1 ? 'disabled' : ''}>▼</button>
+                    </div>
                     <button class="btn-icon edit-memo-btn"       data-memo-id="${m.id}" title="${t('tip_tap_to_edit')}">✏</button>
                     <button class="btn-icon-danger del-memo-btn" data-memo-id="${m.id}" title="${t('tip_delete')}">×</button>
                 </div>
@@ -1445,6 +1562,14 @@ function renderMemosTab() {
             if (!confirm(t('confirm_delete_memo'))) return;
             await removeMemo(S.currentProjectId, btn.dataset.memoId);
             toast(t('toast_deleted'), 'info');
+        });
+    });
+
+    container.querySelectorAll('.memo-order-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+            e.stopPropagation();
+            if (btn.disabled) return;
+            await moveMemo(S.currentProjectId, btn.dataset.memoId, btn.dataset.dir);
         });
     });
 }
