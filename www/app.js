@@ -203,6 +203,10 @@ const T = {
         delete_account_btn_ok:  '계정 삭제',
         toast_account_deleted:  '계정이 삭제되었습니다.',
 
+        // Reorder mode
+        reorder: '순서 변경',
+        done:    '완료',
+
         // Tooltips
         tip_tap_to_edit: '탭하여 편집',
         tip_delete:      '삭제',
@@ -392,6 +396,10 @@ const T = {
         delete_account_btn_ok: 'Delete Account',
         toast_account_deleted: 'Account deleted.',
 
+        // Reorder mode
+        reorder: 'Reorder',
+        done:    'Done',
+
         // Tooltips
         tip_tap_to_edit: 'Tap to edit',
         tip_delete:      'Delete',
@@ -446,8 +454,10 @@ const S = {
         { label: t('status_in_progress'), color: '#6360f4' },
         { label: t('status_done'),        color: '#059669' },
     ],
-    listeners:  [],
-    dashUnsub:  null,
+    listeners:     [],
+    dashUnsub:     null,
+    impReordering: false,
+    memoReordering: false,
 };
 
 let _impAddLock = false;
@@ -801,6 +811,8 @@ function goToDashboard() {
 async function goToProject(id) {
     S.currentProjectId = id;
     S.currentTab = 'improvements';
+    S.impReordering  = false;
+    S.memoReordering = false;
 
     document.getElementById('improvements-list').innerHTML = '';
     document.getElementById('current-update-section').innerHTML = '';
@@ -1394,15 +1406,20 @@ function renderImprovementsTab() {
         listHTML = `<p class="empty-text">${t('imp_empty_add')}</p>`;
     } else if (visible.length === 0) {
         listHTML = `<p class="empty-text">${t('imp_all_added')}</p>`;
-    } else {
+    } else if (S.impReordering) {
         listHTML = visible.map((imp, idx) => `
             <div class="improvement-item ${imp.completed ? 'is-completed' : ''}" data-imp-id="${imp.id}">
+                <span class="improvement-text" style="flex:1">${esc(imp.text)}</span>
                 <div class="order-btns">
                     <button class="order-btn imp-order-btn" data-imp-id="${imp.id}" data-dir="up"
                             title="${t('move_up')}" ${idx === 0 ? 'disabled' : ''}>▲</button>
                     <button class="order-btn imp-order-btn" data-imp-id="${imp.id}" data-dir="down"
                             title="${t('move_down')}" ${idx === visible.length - 1 ? 'disabled' : ''}>▼</button>
                 </div>
+            </div>`).join('');
+    } else {
+        listHTML = visible.map(imp => `
+            <div class="improvement-item ${imp.completed ? 'is-completed' : ''}" data-imp-id="${imp.id}">
                 <input type="checkbox" class="improvement-checkbox" ${imp.completed ? 'checked' : ''}
                        data-imp-id="${imp.id}">
                 <span class="improvement-text improvement-text-editable" data-imp-id="${imp.id}" title="${t('tip_tap_to_edit')}">${esc(imp.text)}</span>
@@ -1415,12 +1432,12 @@ function renderImprovementsTab() {
             </div>`).join('');
     }
 
-    container.innerHTML = listHTML + `
+    container.innerHTML = listHTML + (S.impReordering ? '' : `
         <div class="inline-add-row" style="margin-top:10px">
             <input type="text" id="inline-imp-input" class="form-input inline-input"
                    placeholder="${t('imp_input_ph')}" autocomplete="off">
             <button class="btn btn-primary btn-sm" id="inline-imp-add-btn">${t('add')}</button>
-        </div>`;
+        </div>`);
 
     const impInput  = document.getElementById('inline-imp-input');
     const impAddBtn = document.getElementById('inline-imp-add-btn');
@@ -1517,14 +1534,15 @@ function renderMemosTab() {
             <div class="memo-card-head">
                 <h4 class="memo-title">${esc(m.title)}</h4>
                 <div class="memo-actions">
+                    ${S.memoReordering ? `
                     <div class="order-btns">
                         <button class="order-btn memo-order-btn" data-memo-id="${m.id}" data-dir="up"
                                 title="${t('move_up')}" ${idx === 0 ? 'disabled' : ''}>▲</button>
                         <button class="order-btn memo-order-btn" data-memo-id="${m.id}" data-dir="down"
                                 title="${t('move_down')}" ${idx === S.memos.length - 1 ? 'disabled' : ''}>▼</button>
-                    </div>
+                    </div>` : `
                     <button class="btn-icon edit-memo-btn"       data-memo-id="${m.id}" title="${t('tip_tap_to_edit')}">✏</button>
-                    <button class="btn-icon-danger del-memo-btn" data-memo-id="${m.id}" title="${t('tip_delete')}">×</button>
+                    <button class="btn-icon-danger del-memo-btn" data-memo-id="${m.id}" title="${t('tip_delete')}">×</button>`}
                 </div>
             </div>
             <div class="memo-content">${esc(m.content || '').replace(/\n/g,'<br>')}</div>
@@ -1793,6 +1811,11 @@ function bindProjectPage() {
         btn.addEventListener('click', () => {
             const tab = btn.dataset.tab;
             S.currentTab = tab;
+            // 탭 전환 시 순서 변경 모드 초기화
+            S.impReordering  = false;
+            S.memoReordering = false;
+            syncReorderBtn('imp-reorder-btn',  false);
+            syncReorderBtn('memo-reorder-btn', false);
             document.querySelectorAll('.tab-btn').forEach(b =>
                 b.classList.toggle('active', b.dataset.tab === tab)
             );
@@ -1815,6 +1838,26 @@ function bindProjectPage() {
     });
 
     document.getElementById('add-memo-btn').addEventListener('click', openAddMemoModal);
+
+    document.getElementById('imp-reorder-btn').addEventListener('click', () => {
+        S.impReordering = !S.impReordering;
+        syncReorderBtn('imp-reorder-btn', S.impReordering);
+        renderImprovementsTab();
+    });
+
+    document.getElementById('memo-reorder-btn').addEventListener('click', () => {
+        S.memoReordering = !S.memoReordering;
+        syncReorderBtn('memo-reorder-btn', S.memoReordering);
+        renderMemosTab();
+    });
+}
+
+function syncReorderBtn(id, active) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.textContent = active ? t('done') : t('reorder');
+    btn.classList.toggle('btn-primary', active);
+    btn.classList.toggle('btn-outline',  !active);
 }
 
 function bindModal() {

@@ -94,6 +94,7 @@
             <div id="tab-improvements" class="tab-panel hidden">
                 <div class="panel-header">
                     <h3 class="panel-title" data-i18n="panel_improvements">보완 사항</h3>
+                    <button id="imp-reorder-btn" class="btn btn-sm btn-outline" data-i18n="reorder">순서 변경</button>
                 </div>
                 <div id="improvements-list"></div>
             </div>
@@ -102,7 +103,10 @@
             <div id="tab-memos" class="tab-panel hidden">
                 <div class="panel-header">
                     <h3 class="panel-title" data-i18n="panel_memos">메모</h3>
-                    <button id="add-memo-btn" class="btn btn-sm btn-primary" data-i18n="add_memo">+ 추가</button>
+                    <div style="display:flex;gap:8px">
+                        <button id="memo-reorder-btn" class="btn btn-sm btn-outline" data-i18n="reorder">순서 변경</button>
+                        <button id="add-memo-btn" class="btn btn-sm btn-primary" data-i18n="add_memo">+ 추가</button>
+                    </div>
                 </div>
                 <div id="memos-list"></div>
             </div>
