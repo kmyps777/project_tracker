@@ -963,9 +963,20 @@ async function deleteUpdate(pid, updateId) {
             );
         }
     });
-    // 현재 업데이트라면 프로젝트의 currentUpdateVersion도 초기화
+    // 현재 업데이트라면 가장 최근 이전 업데이트를 새 현재로 승격
     if (u.isCurrent) {
-        batch.update(userRef().collection('projects').doc(pid), { currentUpdateVersion: null });
+        const next = S.updates
+            .filter(x => x.id !== updateId && !x.isCurrent)
+            .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))[0];
+        if (next) {
+            batch.update(
+                userRef().collection('projects').doc(pid).collection('updates').doc(next.id),
+                { isCurrent: true }
+            );
+            batch.update(userRef().collection('projects').doc(pid), { currentUpdateVersion: next.version });
+        } else {
+            batch.update(userRef().collection('projects').doc(pid), { currentUpdateVersion: null });
+        }
     }
     batch.delete(userRef().collection('projects').doc(pid).collection('updates').doc(updateId));
     await batch.commit();
