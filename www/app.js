@@ -1042,9 +1042,14 @@ function listenImprovements(pid) {
 }
 
 async function createImprovement(pid, text) {
+    // 현재 visible 항목의 최대 order + 1 → 맨 아래 추가.
+    // 이동 후 순번이 0,1,2...로 정규화되므로 큰 양수를 쓰면 항상 끝에 붙음.
+    const visible = S.improvements.filter(i => !i.addedToUpdate);
+    const maxOrd  = visible.reduce((m, i) => Math.max(m, typeof i.order === 'number' ? i.order : -Infinity), -Infinity);
+    const newOrd  = isFinite(maxOrd) ? maxOrd + 1 : 0;
     await userRef().collection('projects').doc(pid).collection('improvements').add({
         text, completed: false, addedToUpdate: false, addedChangeId: null,
-        order: -Date.now(), createdAt: TS(),
+        order: newOrd, createdAt: TS(),
     });
 }
 
@@ -1070,13 +1075,17 @@ async function moveImprovement(pid, id, dir) {
     const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= visible.length) return;
     _impMoveLock = true;
-    const a = visible[idx];
-    const b = visible[swapIdx];
-    const orderA = typeof a.order === 'number' ? a.order : idx;
-    const orderB = typeof b.order === 'number' ? b.order : swapIdx;
+    // 위치를 바꾼 새 순서를 만들고 전체 항목에 0,1,2... 순번을 일괄 기록.
+    // 기존 스왑 방식은 -Date.now() 값과 정수 idx 폴백이 섞이면 위치가 튀는 버그가 있음.
+    const reordered = [...visible];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
     const batch = db.batch();
-    batch.update(userRef().collection('projects').doc(pid).collection('improvements').doc(a.id), { order: orderB });
-    batch.update(userRef().collection('projects').doc(pid).collection('improvements').doc(b.id), { order: orderA });
+    reordered.forEach((item, i) => {
+        batch.update(
+            userRef().collection('projects').doc(pid).collection('improvements').doc(item.id),
+            { order: i }
+        );
+    });
     await batch.commit();
     setTimeout(() => { _impMoveLock = false; }, 400);
 }
@@ -1105,8 +1114,11 @@ function listenMemos(pid) {
 }
 
 async function createMemo(pid, title, content) {
+    // 기존 메모 중 최솟값 - 1 → 맨 위에 추가 (최신 메모가 위로).
+    const minOrd = S.memos.reduce((m, x) => Math.min(m, typeof x.order === 'number' ? x.order : Infinity), Infinity);
+    const newOrd = isFinite(minOrd) ? minOrd - 1 : 0;
     await userRef().collection('projects').doc(pid).collection('memos')
-        .add({ title, content, order: -Date.now(), createdAt: TS() });
+        .add({ title, content, order: newOrd, createdAt: TS() });
 }
 
 let _memoMoveLock = false;
@@ -1117,13 +1129,15 @@ async function moveMemo(pid, id, dir) {
     const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= S.memos.length) return;
     _memoMoveLock = true;
-    const a = S.memos[idx];
-    const b = S.memos[swapIdx];
-    const orderA = typeof a.order === 'number' ? a.order : idx;
-    const orderB = typeof b.order === 'number' ? b.order : swapIdx;
+    const reordered = [...S.memos];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
     const batch = db.batch();
-    batch.update(userRef().collection('projects').doc(pid).collection('memos').doc(a.id), { order: orderB });
-    batch.update(userRef().collection('projects').doc(pid).collection('memos').doc(b.id), { order: orderA });
+    reordered.forEach((item, i) => {
+        batch.update(
+            userRef().collection('projects').doc(pid).collection('memos').doc(item.id),
+            { order: i }
+        );
+    });
     await batch.commit();
     setTimeout(() => { _memoMoveLock = false; }, 400);
 }
